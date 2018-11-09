@@ -1,0 +1,60 @@
+---
+- name: Create gce webserver instance
+  hosts: localhost
+  connection: local
+  gather_facts: True
+
+  vars:
+    service_account_email: jbastida@ansible-jbastida.iam.gserviceaccount.com
+    credentials_file: ansible-jbastida-fa818715c0d1.json
+    project_id: ansible-jbastida
+    instance_names: web1,web2,web3
+    machine_type: n1-standard-1
+    image: centos-7
+  tasks:
+  - name: Create firewall rule to allow http traffic
+    gce_net:
+      name: default
+      fwname: "my-http-fw-rule"
+      allowed: tcp:80
+      state: present
+      src_range: "0.0.0.0/0"
+      target_tags: "http-server"
+      service_account_email: "{{ service_account_email }}"
+      credentials_file: "{{ credentials_file }}"
+      project_id: "{{ project_id }}"
+  - name: Create an instance based on image {{ image }}
+    gce:
+      zone: us-east1-b
+      instance_names: "{{ instance_names }}"
+      machine_type: "{{ machine_type }}"
+      image: "{{ image }}"
+      state: present
+      preemptible: true
+      tags: http-server,https-server
+      service_account_email: "{{ service_account_email }}"
+      credentials_file: "{{ credentials_file }}"
+      project_id: "{{ project_id }}"
+      metadata: '{"sshKeys":"baaj060485:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCvCPZE6J+xgdbxRvfuvMiF3ixkVpK1mLr3/1y8b7oU6kvACLHN7QOGMIScvkwCSOVQSCB7gtEgAIXtEtZKX+tds9ifsPvxnqQrARMdqOrfPQ1NRMD8Bwk6VAYpXQiLDZassAoHDnta62XwZoeiLG+Obsi17LNLFSxRdrhySJD/ia4cXpRbEFw+aMmO70InGIjX9+ggC4rmo7Rjsl9n7JMF14anVjtPPMhecPXI4yELT9f0xLLYH4Ol4CdLvn5K79Tma28m32NIc7uKG+kMdkphfgXtxd7m8UWIkbyeK5DhKMhkLcwn9lcq0T/3iIhgY+xGQRWBQA7U4HIAVp81F9x4NYI2A/PnJXnHI3boq60otguSpBBFpp+3tugZ7Fs7Zj8iMnWTTpP9h5PWuzfRATTf9GI5K+xUzg1I9XEgFCMYBFnM5mw4yI1iInSWspSpSFuycOjPGPs1+RWOIxUWqxbR5Uer21NbZEnSQ53LHI9yRWOGNakkvnMMK7scDTWZU8bs+aeuIruqp9aXJYdSkw55sf3T/rTKLVoG5kPuXbpOAtdzYkWbdtKKLNsRPHNayB0AHAoIVB5hx2AWMsxnEGMBGw8xxaGihhJKM3VA+IZR29edLIOHlx9NRvdwveeZbjUgF9yQo99sGfs3WcKXQ1QXwly178J7YQa09Oc3vd7qxw== jbastida@srv9.tsmx.lab"}'
+    register: gce
+  - name: Save host data within a Group
+    add_host:
+      hostname: "{{ item.public_ip }}"
+      groupname: gce_instances_temp
+    with_items: "{{ gce.instance_data }}"
+  - name: Wait for ssh to come up
+    wait_for: host={{ item.public_ip }} port=22 delay=10 timeout=60
+    with_items: "{{ gce.instance_data }}"
+  - name: setting fact
+    set_fact: host={{ item.public_ip }}
+    with_items: "{{ gce.instance_data }}"
+- name: Configure instance post-creation
+  hosts: gce_instances_temp
+  gather_facts: True
+  remote_user: baaj060485
+  become: yes
+  become_method: sudo
+
+  roles:
+    - jbastida
+      

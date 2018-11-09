@@ -1,0 +1,7 @@
+- name: Set autorized key
+  hosts: all
+  tasks:
+  - authorized_key:
+       user=root
+       state=present
+       key="{{lookup ('file', 'id_rsa_ansible.pub')}}"

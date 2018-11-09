@@ -1,0 +1,22 @@
+﻿---
+- name: playbook test to create gce instance
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    service_account_email: jbastida@ansible-jbastida.iam.gserviceaccount.com
+    credentials_file: ansible-jbastida-fa818715c0d1.json
+    project_id: ansible-jbastida
+    machine_type: n1-standard-1
+    image: centos-7
+
+  tasks:
+    - name: Launch Instances
+      gce:
+        instance_names: jbastida-test
+        machine_type: "{{ machine_type }}"
+        image: "{{ image }}"
+        service_account_email: "{{ service_account_email }}"
+        credentials_file: "{{ credentials_file }}"
+        project_id: "{{ project_id }}"
